@@ -251,22 +251,26 @@ class ObjectPocket(PathPocketBase.ObjectPocket):
             keepOrder = getattr(obj, "SortingMode", None) == "Manual"
             self.horizontal = Path.Geom.combineHorizontalFaces(self.horiz, keepOrder=keepOrder)
 
-            # Move all faces to final depth less buffer before extrusion
-            # Small negative buffer is applied to compensate for internal significant digits/rounding issue
-            if self.job.GeometryTolerance.Value == 0.0:
-                buffer = 0.000001
+            if Path.Geom.isRoughly(obj.StartDepth.Value, obj.FinalDepth.Value):
+                # Zero depth (etc. 2D laser engraving), skip extrusion and use face directly.
+                self.removalshapes = [(face, False) for face in self.horizontal]
             else:
-                buffer = self.job.GeometryTolerance.Value / 10.0
-            for h in self.horizontal:
-                h.translate(
-                    FreeCAD.Vector(0.0, 0.0, obj.FinalDepth.Value - h.BoundBox.ZMin - buffer)
-                )
+                # Move all faces to final depth less buffer before extrusion
+                # Small negative buffer is applied to compensate for internal significant digits/rounding issue
+                if self.job.GeometryTolerance.Value == 0.0:
+                    buffer = 0.000001
+                else:
+                    buffer = self.job.GeometryTolerance.Value / 10.0
+                for h in self.horizontal:
+                    h.translate(
+                        FreeCAD.Vector(0.0, 0.0, obj.FinalDepth.Value - h.BoundBox.ZMin - buffer)
+                    )
 
-            # extrude all faces up to StartDepth plus buffer and those are the removal shapes
-            extent = FreeCAD.Vector(0, 0, obj.StartDepth.Value - obj.FinalDepth.Value + buffer)
-            self.removalshapes = [
-                (face.removeSplitter().extrude(extent), False) for face in self.horizontal
-            ]
+                # extrude all faces up to StartDepth plus buffer and those are the removal shapes
+                extent = FreeCAD.Vector(0, 0, obj.StartDepth.Value - obj.FinalDepth.Value + buffer)
+                self.removalshapes = [
+                    (face.removeSplitter().extrude(extent), False) for face in self.horizontal
+                ]
 
         else:  # process the job base object as a whole
             Path.Log.debug("processing the whole job base object")

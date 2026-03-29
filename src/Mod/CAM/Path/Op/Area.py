@@ -282,23 +282,27 @@ class ObjectOp(PathOp.ObjectOp):
 
         Path.Log.debug("Area with params: {}".format(area.getParams()))
 
-        sections = area.makeSections(mode=0, project=self.areaOpUseProjection(obj), heights=heights)
-        Path.Log.debug("sections = %s" % sections)
+        if baseobject.Solids:
+            sections = area.makeSections(mode=0, project=self.areaOpUseProjection(obj), heights=heights)
+            Path.Log.debug("sections = %s" % sections)
 
-        # Rest machining
-        if hasattr(obj, "UseRestMachining") and obj.UseRestMachining:
-            restSections = []
-            for section in sections:
-                bbox = section.getShape().BoundBox
-                sectionClearedAreas = PathOpUtil.getClearedAreas(obj, bbox)
-                restSection = section.getRestArea(
-                    sectionClearedAreas, self.tool.Diameter.getValueAs("mm")
-                )
-                if restSection is not None:
-                    restSections.append(restSection)
-            sections = restSections
+            # Rest machining
+            if hasattr(obj, "UseRestMachining") and obj.UseRestMachining:
+                restSections = []
+                for section in sections:
+                    bbox = section.getShape().BoundBox
+                    sectionClearedAreas = PathOpUtil.getClearedAreas(obj, bbox)
+                    restSection = section.getRestArea(
+                        sectionClearedAreas, self.tool.Diameter.getValueAs("mm")
+                    )
+                    if restSection is not None:
+                        restSections.append(restSection)
+                sections = restSections
 
-        shapelist = [sec.getShape() for sec in sections]
+            shapelist = [sec.getShape() for sec in sections]
+        else:
+            # 2D face
+            shapelist = [area.getShape()]
         Path.Log.debug("shapelist = %s" % shapelist)
 
         pathParams = self.areaOpPathParams(obj, isHole)
@@ -347,7 +351,7 @@ class ObjectOp(PathOp.ObjectOp):
             self.endVector = end_vector
 
         simobj = None
-        if getsim:
+        if getsim and baseobject.Solids:
             areaParams["Thicken"] = True
             areaParams["ToolRadius"] = self.radius - self.radius * 0.005
             area.setParams(**areaParams)
